@@ -2,7 +2,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <ctype.h>
 #include "banker.h"
+
+static bool is_blank_line(const char *line) {
+    for (; *line != '\0'; line++) {
+        if (!isspace((unsigned char)*line)) return false;
+    }
+    return true;
+}
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
@@ -21,7 +29,7 @@ int main(int argc, char *argv[]) {
     }
 
     while (fgets(buffer, sizeof(buffer), file)) {
-        if (buffer[0] == '\n' || buffer[0] == '\r') continue;
+        if (is_blank_line(buffer)) continue;
         num_customers++;
     }
     
@@ -55,7 +63,7 @@ int main(int argc, char *argv[]) {
 
     int i = 0;
     while (fgets(buffer, sizeof(buffer), file)) {
-        if (buffer[0] == '\n' || buffer[0] == '\r') continue;
+        if (is_blank_line(buffer)) continue;
         
         char *token = strtok(buffer, ",\r\n");
         int j = 0;
@@ -103,7 +111,7 @@ int main(int argc, char *argv[]) {
     }
 
     while (fgets(buffer, sizeof(buffer), cmd_file)) {
-        if (buffer[0] == '\n' || buffer[0] == '\r') continue;
+        if (is_blank_line(buffer)) continue;
         
         if (buffer[0] == '*') {
             print_system_state(out_file, num_customers, num_resources, max, allocation, need, available);
