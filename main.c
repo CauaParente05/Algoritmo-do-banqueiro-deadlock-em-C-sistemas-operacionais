@@ -3,7 +3,21 @@
 #include <string.h>
 #include <stdbool.h>
 #include <ctype.h>
+#include <errno.h>
+#include <limits.h>
 #include "banker.h"
+
+static bool parse_nonneg_int(const char *token, int *out) {
+    char *endptr;
+    errno = 0;
+    long val = strtol(token, &endptr, 10);
+
+    if (endptr == token || *endptr != '\0' || errno == ERANGE || val < 0 || val > INT_MAX) {
+        return false;
+    }
+    *out = (int)val;
+    return true;
+}
 
 static bool is_blank_line(const char *line) {
     for (; *line != '\0'; line++) {
@@ -69,17 +83,13 @@ int main(int argc, char *argv[]) {
         int j = 0;
         
         while (token != NULL && j < num_resources) {
-            char *endptr;
-            long val = strtol(token, &endptr, 10);
-            
-            if (endptr == token || *endptr != '\0' || val < 0) {
-                fprintf(stderr, "Erro: dado nao numerico ou negativo encontrado em customer.txt.\n");
+            if (!parse_nonneg_int(token, &max[i * num_resources + j])) {
+                fprintf(stderr, "Erro: dado invalido (nao numerico, negativo ou grande demais) em customer.txt.\n");
                 fclose(file);
                 free(available); free(max); free(allocation); free(need); free(request);
                 return 1;
             }
-            
-            max[i * num_resources + j]  = (int)val;
+
             need[i * num_resources + j] = max[i * num_resources + j];
             token = strtok(NULL, ",\r\n");
             j++;
@@ -118,10 +128,10 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        char type[3];
-        int customer_id;
+        char *type     = strtok(buffer, " \t\r\n");
+        char *id_token = strtok(NULL, " \t\r\n");
 
-        if (sscanf(buffer, "%2s %d", type, &customer_id) != 2) {
+        if (id_token == NULL) {
             fprintf(stderr, "Erro: formatacao invalida no commands.txt.\n");
             fclose(cmd_file); fclose(out_file);
             free(available); free(max); free(allocation); free(need); free(request);
@@ -135,30 +145,36 @@ int main(int argc, char *argv[]) {
             return 1;
         }
 
-        if (customer_id < 0 || customer_id >= num_customers) {
-            fprintf(stderr, "Erro: customer_id %d fora dos limites.\n", customer_id);
+        char *id_end;
+        errno = 0;
+        long parsed_id = strtol(id_token, &id_end, 10);
+
+        if (id_end == id_token || *id_end != '\0') {
+            fprintf(stderr, "Erro: formatacao invalida no commands.txt.\n");
             fclose(cmd_file); fclose(out_file);
             free(available); free(max); free(allocation); free(need); free(request);
             return 1;
         }
 
-        strtok(buffer, " \t\r\n"); 
-        strtok(NULL, " \t\r\n"); 
-        char *token = strtok(NULL, " \t\r\n"); 
+        if (errno == ERANGE || parsed_id < 0 || parsed_id >= num_customers) {
+            fprintf(stderr, "Erro: customer_id %s fora dos limites.\n", id_token);
+            fclose(cmd_file); fclose(out_file);
+            free(available); free(max); free(allocation); free(need); free(request);
+            return 1;
+        }
+        int customer_id = (int)parsed_id;
+
+        char *token = strtok(NULL, " \t\r\n");
 
         int j = 0;
         while (token != NULL && j < num_resources) {
-            char *endptr;
-            long val = strtol(token, &endptr, 10);
-
-            if (endptr == token || *endptr != '\0' || val < 0) {
-                fprintf(stderr, "Erro: dado nao numerico ou negativo em commands.txt.\n");
+            if (!parse_nonneg_int(token, &request[j])) {
+                fprintf(stderr, "Erro: dado invalido (nao numerico, negativo ou grande demais) em commands.txt.\n");
                 fclose(cmd_file); fclose(out_file);
                 free(available); free(max); free(allocation); free(need); free(request);
                 return 1;
             }
-            
-            request[j] = (int)val;
+
             token = strtok(NULL, " \t\r\n");
             j++;
         }
